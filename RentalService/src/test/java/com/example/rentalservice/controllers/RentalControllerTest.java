@@ -49,6 +49,21 @@ public class RentalControllerTest {
     }
 
     @Test
+    public void testAddRentalCarNotFound() throws Exception {
+        // La voiture n'existe pas dans le service voitures : le prix tombe a 0
+        when(carClient.getCar("UNKNOWN")).thenReturn(null);
+
+        Rental rental = new Rental("B009", "UNKNOWN", "Bob", 2, 0.0);
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        mockMvc.perform(post("/rentals")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(rental)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalPrice").value(0.0));
+    }
+
+    @Test
     public void testGetRentals() throws Exception {
         mockMvc.perform(get("/rentals"))
                 .andExpect(status().isOk());
@@ -65,6 +80,12 @@ public class RentalControllerTest {
                 .content(objectMapper.writeValueAsString(rental)));
 
         mockMvc.perform(get("/rentals/B001"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    public void testSayHello() throws Exception {
+        mockMvc.perform(get("/"))
                 .andExpect(status().isOk());
     }
 }
