@@ -1,0 +1,79 @@
+name: CI - Tests et Qualite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Tests + couverture CarService
+        run: |
+          cd ./MyService
+          chmod +x gradlew
+          ./gradlew test jacocoTestReport
+
+      - name: Tests + couverture RentalService
+        run: |
+          cd ./RentalService
+          chmod +x gradlew
+          ./gradlew test jacocoTestReport
+
+      - name: Upload couverture CarService vers Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./MyService/build/reports/jacoco/test/jacocoTestReport.xml
+          flags: car-service
+          fail_ci_if_error: false
+
+      - name: Upload couverture RentalService vers Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./RentalService/build/reports/jacoco/test/jacocoTestReport.xml
+          flags: rental-service
+          fail_ci_if_error: false
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Build and analyze (SonarCloud, les deux services)
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          cd ./MyService
+          chmod +x gradlew
+          ./gradlew build sonar --info \
+            -Dsonar.sources=src/main/java,../RentalService/src/main/java \
+            -Dsonar.tests=src/test/java,../RentalService/src/test/java \
+            -Dsonar.java.binaries=build/classes/java/main,../RentalService/build/classes/java/main \
+            -Dsonar.coverage.jacoco.xmlReportPaths=build/reports/jacoco/test/jacocoTestReport.xml,../RentalService/build/reports/jacoco/test/jacocoTestReport.xml
+
+      - name: Build des images Docker (les deux services)
+        run: |
+          cd ./MyService && docker build -t car-service:latest .
+          cd ../RentalService && docker build -t rental-service:latest .

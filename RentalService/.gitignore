@@ -1,0 +1,9 @@
+# Sorties de build Gradle
+**/build/
+**/.gradle/
+# Fichiers systeme
+.DS_Store
+# IDE
+.idea/
+.vscode/
+*.iml
